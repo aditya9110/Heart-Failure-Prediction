@@ -8,21 +8,13 @@ from collections import Counter
 st.title('Heart Failure Prediction')
 data = pd.read_csv('heart_failure_clinical_records_dataset.csv')
 
-row1col1, row1col2 = st.columns(2)
-
 st.sidebar.title('Navigation')
+page = st.sidebar.radio('What would you like to do', ['Home', 'Visualize', 'Predict'])
 
+if page == 'Home':
+    st.write('Home')
 
-default_visual_or_predict = 0
-visual_or_predict = 0
-with row1col1:
-    if st.button('Visualize'):
-        visual_or_predict = 0
-with row1col2:
-    if st.button('Predict'):
-        visual_or_predict = 1
-
-if visual_or_predict == 0:
+if page == 'Visualize':
     discrete_features, continuous_features = [], []
     for feature in data.columns:
         if feature == 'DEATH_EVENT':
@@ -31,7 +23,7 @@ if visual_or_predict == 0:
             continuous_features.append(feature)
         else:
             discrete_features.append(feature)
-    print('Discrete: ', discrete_features, '\n', 'Continuous', continuous_features)
+    # print('Discrete: ', discrete_features, '\n', 'Continuous', continuous_features)
 
     row2col1, row2col2 = st.columns(2)
     with row2col1:
@@ -55,6 +47,8 @@ if visual_or_predict == 0:
         sns.countplot(ax=ax[0], x=option1, data=data)
         if option1 != 'DEATH_EVENT':
             sns.countplot(ax=ax[1], x=option1, hue='DEATH_EVENT', data=data)
+        else:
+            ax[1].set_visible(False)
         st.pyplot(fig)
 
     st.header('Correlation Matrix')
@@ -87,7 +81,7 @@ if visual_or_predict == 0:
         sns.kdeplot(x=option2, hue='DEATH_EVENT', data=data, fill=True)
         st.pyplot(fig)
 
-elif visual_or_predict == 1:
+if page == 'Predict':
     with st.form(key='my_form'):
         text_input = st.text_input(label='Enter some text')
         submit_button = st.form_submit_button(label='Predict')
