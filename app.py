@@ -12,6 +12,7 @@ row1col1, row1col2 = st.columns(2)
 
 st.sidebar.title('Navigation')
 
+
 default_visual_or_predict = 0
 visual_or_predict = 0
 with row1col1:
