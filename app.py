@@ -11,7 +11,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, plot_confusion_matrix
 from sklearn.preprocessing import StandardScaler
-from sklearn.feature_selection import chi2, SelectFromModel, SelectKBest
+from sklearn.feature_selection import chi2, SelectFromModel, SelectKBest, mutual_info_classif
 from sklearn.model_selection import GridSearchCV, RandomizedSearchCV, cross_val_score, RepeatedStratifiedKFold
 from sklearn.svm import SVC
 from imblearn.over_sampling import RandomOverSampler, SMOTE
@@ -100,7 +100,8 @@ elif page == 'Visualize':
                        'platelets': 'A normal platelet count ranges from 150,000 to 450,000 platelets per microliter of blood.',
                        'serum_creatinine': 'The measure of serum creatinine may also be used to estimate how quickly the kidneys filter blood. 0.5 to 1.2 (mg/dL) is a normal range. Higher than that results in kidney impairment. ',
                        'serum_sodium': 'Indicates the level of serum sodium in the blood. A normal blood sodium level is between 135 and 145 milliequivalents per liter (mEq/L). If your sodium blood levels are too high or too low, it may mean that you have a problem with your kidneys, dehydration, or another medical condition.',
-                       'time': 'Determines the follow-up period of each patient. Most patients who deceased were in the initial follow-up period.'}
+                       'time': 'Determines the follow-up period of each patient. Most patients who deceased were in the initial follow-up period.'
+                       }
 
     # count plot
     st.header('Counts and Count Difference')
@@ -126,7 +127,7 @@ elif page == 'Visualize':
 
     # correlation matrix
     st.header('Correlation Matrix')
-    selected_features = st.multiselect('Features', data.columns)
+    selected_features = st.multiselect('Features', data.columns[:-1])
     row3col1, row3col2 = st.columns([6, 1])
     correlate = 0
     with row3col1:
@@ -135,12 +136,12 @@ elif page == 'Visualize':
         if st.button('Correlate'):
             correlate = 1
     if select_all_features:
-        selected_features = list(data.columns)
+        selected_features = list(data.columns[:-1])
     if selected_features and (select_all_features or correlate):
         correlation = data[selected_features].corr()
         correlate = 0
-        fig = plt.figure(figsize=(8, 8))
-        sns.heatmap(correlation, annot=True, annot_kws={"size": 7})
+        fig = plt.figure(figsize=(10, 10))
+        sns.heatmap(correlation, cmap="Blues", vmax=0.6, annot=True, annot_kws={"size": 11}, fmt='.2f')
         st.pyplot(fig)
 
     # kde plot
@@ -149,16 +150,26 @@ elif page == 'Visualize':
     with row4col1:
         st.subheader('Select a feature')
         option2 = st.radio('', continuous_features)
+        is_hist = st.checkbox('Histogram')
     with row4col2:
         st.subheader(option2)
         fig = plt.figure(figsize=(8, 6))
         plt.xticks(fontsize=12)
-        sns.kdeplot(x=option2, hue='DEATH_EVENT', data=data, fill=True)
+        if is_hist:
+            sns.histplot(x=option2, data=data, bins=20)
+        else:
+            sns.kdeplot(x=option2, hue='DEATH_EVENT', data=labelled_data, fill=True)
         st.pyplot(fig)
 
     st.write(feature_details[option2])
 
     st.header('Feature Selection')
+
+    importance = mutual_info_classif(data.drop(['DEATH_EVENT'], axis=1), data['DEATH_EVENT'])
+    feat_importance = pd.Series(importance, data.columns[:-1])
+    feat_importance.plot(kind='barh', color='teal')
+    plt.show()
+
     best_features = SelectKBest(chi2, k=10)
     features_ranking = best_features.fit(data.drop(['DEATH_EVENT'], axis=1), data['DEATH_EVENT'])
     # features_ranking_df = pd.Series(features_ranking, data.columns[:-1])
@@ -176,17 +187,17 @@ elif page == 'Visualize':
         pass
 
 
-    st.header('Model Building')
-    model_input_features = st.multiselect('Features', data.drop(['DEATH_EVENT'], axis=1).columns)
-    algos = ['Logistic Regression', 'Random Forest Classifier', 'Decision Tree Classifier', 'Gradient Boosting', 'SVM']
-    row5col1, row5col2 = st.columns(2)
-    with row5col1:
-        sample_method = st.radio('Select Sample Method', ['No Sampling', 'Over Sampling', 'SMOTE'])
-    with row5col2:
-        ml_algorithm = st.selectbox('Select Algorithm', algos)
-    if st.button('Predict'):
-        if model_input_features:
-            predict(model_input_features, ml_algorithm, sample_method)
+    # st.header('Model Building')
+    # model_input_features = st.multiselect('Features', data.drop(['DEATH_EVENT'], axis=1).columns)
+    # algos = ['Logistic Regression', 'Random Forest Classifier', 'Decision Tree Classifier', 'Gradient Boosting', 'SVM']
+    # row5col1, row5col2 = st.columns(2)
+    # with row5col1:
+    #     sample_method = st.radio('Select Sample Method', ['No Sampling', 'Over Sampling', 'SMOTE'])
+    # with row5col2:
+    #     ml_algorithm = st.selectbox('Select Algorithm', algos)
+    # if st.button('Predict'):
+    #     if model_input_features:
+    #         predict(model_input_features, ml_algorithm, sample_method)
 
 elif page == 'Predict':
     with st.form(key='my_form'):
