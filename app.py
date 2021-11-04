@@ -2,8 +2,12 @@ import streamlit as st
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 import seaborn as sns
 from collections import Counter
+
+mpl.rcParams['font.size'] = 10
+mpl.rcParams['text.color'] = 'black'
 
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression, Lasso
@@ -89,21 +93,30 @@ elif page == 'Visualize':
         for feature in continuous_features:
             st.write(feature)
 
-    feature_details = {'anaemia': 'Anaemia is a condition in which the blood doesn\'t have enough healthy red blood cells.',
-                       'diabetes': 'Having diabetes means you are more likely to develop heart disease.',
-                       'high_blood_pressure': 'High blood pressure is a condition in which the force of the blood against the artery walls is too high. High blood pressure can also cause ischemic heart disease.',
-                       'sex': 'Sex of the patient.',
-                       'smoking': 'It describe the smoking habit of the patient.',
-                       'age': 'Age of the patient. The average age of patient is ' + str(round(data['age'].mean(), 2)),
-                       'creatinine_phosphokinase': 'Determines the level of CPK enzyme in the blood. Higher the level, more chance of heart disease.',
-                       'ejection_fraction': 'Percentage of fluid ejected from heart chamber with each contraction. A borderline ejection fraction can range between 41% and 50%.',
-                       'platelets': 'A normal platelet count ranges from 150,000 to 450,000 platelets per microliter of blood.',
-                       'serum_creatinine': 'The measure of serum creatinine may also be used to estimate how quickly the kidneys filter blood. 0.5 to 1.2 (mg/dL) is a normal range. Higher than that results in kidney impairment. ',
-                       'serum_sodium': 'Indicates the level of serum sodium in the blood. A normal blood sodium level is between 135 and 145 milliequivalents per liter (mEq/L). If your sodium blood levels are too high or too low, it may mean that you have a problem with your kidneys, dehydration, or another medical condition.',
-                       'time': 'Determines the follow-up period of each patient. Most patients who deceased were in the initial follow-up period.'
-                       }
+    feature_details = {
+        'anaemia': 'Anaemia is a condition in which the blood doesn\'t have enough healthy red blood cells.',
+        'diabetes': 'Having diabetes means you are more likely to develop heart disease.',
+        'high_blood_pressure': 'High blood pressure is a condition in which the force of the blood against the artery walls is too high. High blood pressure can also cause ischemic heart disease.',
+        'sex': 'Sex of the patient.',
+        'smoking': 'It describe the smoking habit of the patient.',
+        'age': 'Age of the patient. The average age of patient is ' + str(round(data['age'].mean(), 2)),
+        'creatinine_phosphokinase': 'Determines the level of CPK enzyme in the blood. Higher the level, more chance of heart disease.',
+        'ejection_fraction': 'Percentage of fluid ejected from heart chamber with each contraction. A borderline ejection fraction can range between 41% and 50%.',
+        'platelets': 'A normal platelet count ranges from 150,000 to 450,000 platelets per microliter of blood.',
+        'serum_creatinine': 'The measure of serum creatinine may also be used to estimate how quickly the kidneys filter blood. 0.5 to 1.2 (mg/dL) is a normal range. Higher than that results in kidney impairment. ',
+        'serum_sodium': 'Indicates the level of serum sodium in the blood. A normal blood sodium level is between 135 and 145 milliequivalents per liter (mEq/L). If your sodium blood levels are too high or too low, it may mean that you have a problem with your kidneys, dehydration, or another medical condition.',
+        'time': 'Determines the follow-up period of each patient. Most patients who deceased were in the initial follow-up period.'
+        }
 
-    # count plot
+    def autopct_format(values):
+        def my_format(pct):
+            total = sum(values)
+            val = int(round(pct * total / 100.0))
+            return '{v:d}'.format(v=val)
+
+        return my_format
+
+    # pie plot
     st.header('Counts and Count Difference')
     row2col1, row2col2 = st.columns([1, 2.5])
     with row2col1:
@@ -112,18 +125,31 @@ elif page == 'Visualize':
     with row2col2:
         if option1 == 'DEATH_EVENT':
             st.subheader(option1 + ' - Dependent Variable')
-            fig = plt.figure(figsize=(6, 4))
-            plt.xticks(fontsize=12)
-            sns.countplot(x=option1, data=labelled_data)
+            fig = plt.figure(figsize=(2, 2))
+            fig.set_size_inches(2, 2)
+            plt.pie(Counter(labelled_data[option1]).values(), labels=Counter(labelled_data[option1]).keys(),
+                    startangle=90, autopct=autopct_format(Counter(labelled_data[option1]).values()), radius=1.5,
+                    wedgeprops={'edgecolor': 'black', 'linewidth': 1})
         else:
             st.subheader(option1)
-            fig, ax = plt.subplots(1, 2, figsize=(6, 4))
-            plt.xticks(fontsize=12)
-            sns.countplot(ax=ax[0], x=option1, data=labelled_data).set_title('A) Count Difference')
-            sns.countplot(ax=ax[1], x=option1, hue='DEATH_EVENT', data=labelled_data).set_title('B) Count wrt DEATH_EVENT')
+            st.write(feature_details[option1])
+            fig = plt.figure(figsize=(2, 2))
+            fig.set_size_inches(2, 2)
+            # fig.patch.set_facecolor('#0E1117')
+            plt.pie(Counter(labelled_data[option1]).values(), labels=Counter(labelled_data[option1]).keys(),
+                    startangle=90, autopct=autopct_format(Counter(labelled_data[option1]).values()), radius=1.5,
+                    wedgeprops={'edgecolor': 'black', 'linewidth': 1})
         st.pyplot(fig)
 
-    st.write(feature_details[option1])
+    if option1 != 'DEATH_EVENT':
+        fig, ax = plt.subplots(1, 2, figsize=(6, 4))
+        transformed_data = labelled_data.groupby([option1, 'DEATH_EVENT']).size().reset_index(name='count')
+        for i, u in enumerate(labelled_data[option1].unique()):
+            ax[i].title.set_text(option1 + ' - ' + str(u))
+            ax[i].pie(transformed_data[transformed_data[option1] == u]['count'],
+                      labels=transformed_data[transformed_data[option1] == u]['DEATH_EVENT'], startangle=90,
+                      autopct=autopct_format(transformed_data[transformed_data[option1] == u]['count']))
+        st.pyplot(fig)
 
     # correlation matrix
     st.header('Correlation Matrix')
@@ -150,12 +176,15 @@ elif page == 'Visualize':
     with row4col1:
         st.subheader('Select a feature')
         option2 = st.radio('', continuous_features)
-        is_hist = st.checkbox('Histogram')
+
+        visualize_type = st.radio('', ['KDE Plot', 'Histogram', 'Box Plot'])
     with row4col2:
         st.subheader(option2)
         fig = plt.figure(figsize=(8, 6))
         plt.xticks(fontsize=12)
-        if is_hist:
+        if visualize_type == 'Box Plot':
+            sns.boxplot(x=option2, data=data)
+        elif visualize_type == 'Histogram':
             sns.histplot(x=option2, data=data, bins=20)
         else:
             sns.kdeplot(x=option2, hue='DEATH_EVENT', data=labelled_data, fill=True)
@@ -178,14 +207,12 @@ elif page == 'Visualize':
         ranking_dictionary[data.columns[i]] = round(features_ranking.scores_[i], 3)
     asc_sort = sorted(ranking_dictionary.items(), key=lambda kv: (kv[1], kv[0]))
     plot_data = {'features': [i for i, j in asc_sort], 'scores': list(np.arange(1, 13))}
-    print(plot_data)
+    # print(plot_data)
 
     # st.bar_chart(pd.Series(plot_data))
 
-
     def predict(features, algo, sample):
         pass
-
 
     # st.header('Model Building')
     # model_input_features = st.multiselect('Features', data.drop(['DEATH_EVENT'], axis=1).columns)
