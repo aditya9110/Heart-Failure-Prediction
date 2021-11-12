@@ -27,10 +27,21 @@ with row0col1:
 with row0col2:
     st.title('Heart Failure Prediction')
 
-file = st.file_uploader('Insert Data')
+# file = st.file_uploader('Insert Data')
+file = True
 
 if file:
-    data = pd.read_csv(file.name)
+    # data = pd.read_csv(file.name)
+    data = pd.read_csv('heart_failure_clinical_records_dataset.csv')
+
+    labelled_data = data.copy()
+    labelled_data['anaemia'] = labelled_data['anaemia'].map({0: 'No', 1: 'Yes'})
+    labelled_data['diabetes'] = labelled_data['diabetes'].map({0: 'No', 1: 'Yes'})
+    labelled_data['high_blood_pressure'] = labelled_data['high_blood_pressure'].map({0: 'No', 1: 'Yes'})
+    labelled_data['sex'] = labelled_data['sex'].map({0: 'Female', 1: 'Male'})
+    labelled_data['smoking'] = labelled_data['smoking'].map({0: 'No', 1: 'Yes'})
+    labelled_data['DEATH_EVENT'] = labelled_data['DEATH_EVENT'].map({0: 'Alive', 1: 'Dead'})
+
     dependent_var = st.selectbox('Select the Dependent Variable', data.columns, index=len(data.columns)-1)
 
     st.header('Independent Variables')
