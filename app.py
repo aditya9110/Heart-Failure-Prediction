@@ -299,13 +299,7 @@ if page == 'Predictive Model':
                 prediction_values = np.array(X_test[i]).reshape(1, -1)
                 predicted_data['Risk Probability'].iloc[i] = model.predict_proba(prediction_values)[:, 1]
 
-            sorting_state = st.selectbox('Sort By', ['Index', 'Risk - Ascending', 'Risk - Descending'])
-            if sorting_state == 'Index':
-                st.dataframe(predicted_data.sort_index())
-            elif sorting_state == 'Risk - Ascending':
-                st.dataframe(predicted_data.sort_values(by=['Risk Probability']))
-            elif sorting_state == 'Risk - Descending':
-                st.dataframe(predicted_data.sort_values(by=['Risk Probability'], ascending=False))
+            st.dataframe(predicted_data.sort_values(by=['Risk Probability'], ascending=False))
 
     else:
         st.subheader('Please upload a file!')
