@@ -27,7 +27,7 @@ from lifelines import KaplanMeierFitter
 from lifelines.utils import concordance_index as c_idx
 
 st.sidebar.title('Navigation')
-page = st.sidebar.radio('What would you like to do', ['Predictive Model', 'Survival Model', 'Clustering Model'])
+page = st.sidebar.radio('What would you like to do', ['Predictive Model', 'Survival Model'])
 
 if page == 'Predictive Model':
     row0col1, row0col2 = st.columns([1, 5])
@@ -52,6 +52,7 @@ if page == 'Predictive Model':
         labelled_data['DEATH_EVENT'] = labelled_data['DEATH_EVENT'].map({0: 'Alive', 1: 'Dead'})
 
         dependent_var = st.selectbox('Select the Dependent Variable', data.columns, index=len(data.columns)-1)
+        no_dependent_var = st.checkbox('Dependent Variable not available ?')
 
         st.header('Independent Variables')
         independent_var = data.drop(dependent_var, axis=1)
@@ -64,10 +65,11 @@ if page == 'Predictive Model':
             row0b[i].write(independent_var.columns[i + 4])
             row0c[i].write(independent_var.columns[i + 8])
 
-        st.header('Dependent Variable')
-        st.subheader(dependent_var)
-        st.write('The label here considered is DEATH_EVENT which depicts the death of a patient during the follow-up period'
-                 ' of the treatment.')
+        if not no_dependent_var:
+            st.header('Dependent Variable')
+            st.subheader(dependent_var)
+            st.write('The label here considered is DEATH_EVENT which depicts the death of a patient during the '
+                     'follow-up period of the treatment.')
 
         # discrete vs continuous features
         discrete_features, continuous_features = [], []
@@ -103,7 +105,10 @@ if page == 'Predictive Model':
         row2col1, row2col2 = st.columns([1, 2.5])
         with row2col1:
             st.subheader('Select a feature')
-            option1 = st.radio('', discrete_features + [dependent_var])
+            if not no_dependent_var:
+                option1 = st.radio('', discrete_features + [dependent_var])
+            else:
+                option1 = st.radio('', discrete_features)
         with row2col2:
             if option1 == dependent_var:
                 st.subheader(option1 + ' - Dependent Variable')
@@ -123,7 +128,7 @@ if page == 'Predictive Model':
                         wedgeprops={'edgecolor': 'black', 'linewidth': 1})
             st.pyplot(fig)
 
-        if option1 != dependent_var:
+        if not no_dependent_var and option1 != dependent_var:
             fig, ax = plt.subplots(1, 2, figsize=(6, 4))
             transformed_data = labelled_data.groupby([option1, 'DEATH_EVENT']).size().reset_index(name='count')
             for i, u in enumerate(labelled_data[option1].unique()):
@@ -144,7 +149,7 @@ if page == 'Predictive Model':
             if st.button('Correlate'):
                 correlate = 1
         if select_all_features:
-            selected_features = list(data.drop(dependent_var, axis=1).columns)
+            selected_features = list(data.drop(['time', dependent_var], axis=1).columns)
         if selected_features and (select_all_features or correlate):
             correlation = data[selected_features].corr()
             correlate = 0
@@ -170,7 +175,10 @@ if page == 'Predictive Model':
             if visualize_type == 'Histogram':
                 sns.histplot(x=option2, data=data, bins=20)
             else:
-                sns.kdeplot(x=option2, hue='DEATH_EVENT', data=labelled_data, fill=True)
+                if no_dependent_var:
+                    sns.kdeplot(x=option2, data=labelled_data, fill=True)
+                else:
+                    sns.kdeplot(x=option2, hue=dependent_var, data=labelled_data, fill=True)
             st.pyplot(fig)
 
         # st.write(feature_details[option2])
@@ -255,51 +263,74 @@ if page == 'Predictive Model':
         predict_button = st.button('Predict')
         predict_button = True
         if predict_button:
-            X = data[['ejection_fraction', 'serum_creatinine', 'platelets']]
-            y = data[dependent_var]
+            if not no_dependent_var:
+                X = data[['ejection_fraction', 'serum_creatinine', 'platelets']]
+                y = data[dependent_var]
 
-            X_train, X_testi, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2)
+                X_train, X_testi, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2)
 
-            lof = LocalOutlierFactor()
-            outlier_rows = lof.fit_predict(X_train)
+                lof = LocalOutlierFactor()
+                outlier_rows = lof.fit_predict(X_train)
 
-            mask = outlier_rows != -1
-            X_train, y_train = X_train[mask], y_train[mask]
+                mask = outlier_rows != -1
+                X_train, y_train = X_train[mask], y_train[mask]
 
-            oversample = RandomOverSampler(sampling_strategy='minority')
-            X_train, y_train = oversample.fit_resample(X_train, y_train)
+                oversample = RandomOverSampler(sampling_strategy='minority')
+                X_train, y_train = oversample.fit_resample(X_train, y_train)
 
-            scaler = StandardScaler()
-            X_train = scaler.fit_transform(X_train)
-            X_test = scaler.transform(X_testi)
+                scaler = StandardScaler()
+                X_train = scaler.fit_transform(X_train)
+                X_test = scaler.transform(X_testi)
 
-            model = SVC(kernel='linear', gamma=0.1, probability=True)
-            model.fit(X_train, y_train)
-            y_pred = model.predict(X_test)
-            st.write('Accuracy: ' + str(accuracy_score(y_test, y_pred)*100))
-            st.write('Recall: ' + str(recall_score(y_test, y_pred) * 100))
-            # st.write(classification_report(y_test, y_pred))
+                model = SVC(kernel='linear', gamma=0.1, probability=True)
+                model.fit(X_train, y_train)
+                y_pred = model.predict(X_test)
+                st.write('Accuracy: ' + str(accuracy_score(y_test, y_pred)*100))
+                st.write('Recall: ' + str(recall_score(y_test, y_pred) * 100))
+                # st.write(classification_report(y_test, y_pred))
 
-            fig, ax = plt.subplots(figsize=(2, 2))
-            conf_matrix = confusion_matrix(y_true=y_test, y_pred=y_pred)
-            ax.matshow(conf_matrix, cmap=plt.cm.Blues, alpha=0.3)
-            for i in range(conf_matrix.shape[0]):
-                for j in range(conf_matrix.shape[1]):
-                    ax.text(x=j, y=i, s=conf_matrix[i, j], va='center', ha='center', size='small')
+                fig, ax = plt.subplots(figsize=(2, 2))
+                conf_matrix = confusion_matrix(y_true=y_test, y_pred=y_pred)
+                ax.matshow(conf_matrix, cmap=plt.cm.Blues, alpha=0.3)
+                for i in range(conf_matrix.shape[0]):
+                    for j in range(conf_matrix.shape[1]):
+                        ax.text(x=j, y=i, s=conf_matrix[i, j], va='center', ha='center', size='small')
 
-            plt.xlabel('Predictions', fontsize=6)
-            plt.ylabel('Actuals', fontsize=6)
-            plt.title('Confusion Matrix', fontsize=6)
-            st.pyplot(fig)
+                plt.xlabel('Predictions', fontsize=6)
+                plt.ylabel('Actuals', fontsize=6)
+                plt.title('Confusion Matrix', fontsize=6)
+                st.pyplot(fig)
 
-            predicted_data = pd.DataFrame(X_testi, columns=['ejection_fraction', 'serum_creatinine', 'platelets'])
-            predicted_data['Risk Probability'] = 0
+                predicted_data = pd.DataFrame(X_testi, columns=['ejection_fraction', 'serum_creatinine', 'platelets'])
+                predicted_data['Risk Probability'] = 0
 
-            for i in range(predicted_data.shape[0]):
-                prediction_values = np.array(X_test[i]).reshape(1, -1)
-                predicted_data['Risk Probability'].iloc[i] = model.predict_proba(prediction_values)[:, 1]
+                for i in range(predicted_data.shape[0]):
+                    prediction_values = np.array(X_test[i]).reshape(1, -1)
+                    predicted_data['Risk Probability'].iloc[i] = model.predict_proba(prediction_values)[:, 1]
 
-            st.dataframe(predicted_data.sort_values(by=['Risk Probability'], ascending=False))
+                st.dataframe(predicted_data.sort_values(by=['Risk Probability'], ascending=False))
+
+            elif no_dependent_var:
+                X = data.drop(['time', 'DEATH_EVENT'], axis=1)
+                y = data['DEATH_EVENT']
+
+                lof = LocalOutlierFactor()
+                outlier_rows = lof.fit_predict(X)
+
+                mask = outlier_rows != -1
+                X, y = X[mask], y[mask]
+
+                oversample = RandomOverSampler(sampling_strategy='minority')
+                X, y = oversample.fit_resample(X, y)
+                print(Counter(y))
+
+                scaler = StandardScaler()
+                X = scaler.fit_transform(X)
+
+                cluster_model = KMeans(n_clusters=2, n_init=30, tol=0.00001, max_iter=1000)
+                cluster_model.fit(X)
+                y_pred = cluster_model.labels_
+
 
     else:
         st.subheader('Please upload a file!')
@@ -380,26 +411,14 @@ if page == 'Survival Model':
 
         st.pyplot(fig)
 
-if page == 'Clustering Model':
-    row0col1, row0col2 = st.columns([1, 5])
-    with row0col1:
-        st.image('1249-heart-beat-outline.gif')
-    with row0col2:
-        st.title('Heart Failure Prediction')
+        more_details_button = st.button('More Details')
+        if more_details_button:
+            more_details = []
+            for i in patient_id:
+                details = [i]
+                details.extend(labelled_data.loc[i].values)
+                more_details.append(details)
 
-    # file = st.file_uploader('Insert Data')
-    file = True
+            more_details_df = pd.DataFrame(more_details, columns=['Patient ID'] + list(labelled_data.columns))
+            st.dataframe(more_details_df)
 
-    if file:
-        # data = pd.read_csv(file.name)
-        data = pd.read_csv('heart_failure_clinical_records_dataset.csv')
-
-        labelled_data = data.copy()
-        labelled_data['anaemia'] = labelled_data['anaemia'].map({0: 'No', 1: 'Yes'})
-        labelled_data['diabetes'] = labelled_data['diabetes'].map({0: 'No', 1: 'Yes'})
-        labelled_data['high_blood_pressure'] = labelled_data['high_blood_pressure'].map({0: 'No', 1: 'Yes'})
-        labelled_data['sex'] = labelled_data['sex'].map({0: 'Female', 1: 'Male'})
-        labelled_data['smoking'] = labelled_data['smoking'].map({0: 'No', 1: 'Yes'})
-        labelled_data['DEATH_EVENT'] = labelled_data['DEATH_EVENT'].map({0: 'Alive', 1: 'Dead'})
-
-        k_means = KMeans(n_clusters=2)
