@@ -115,7 +115,7 @@ if page == 'Predictive Model':
                 fig = plt.figure(figsize=(2, 2))
                 fig.set_size_inches(2, 2)
                 plt.pie(Counter(labelled_data[option1]).values(), labels=Counter(labelled_data[option1]).keys(),
-                        startangle=90, autopct=autopct_format(Counter(labelled_data[option1]).values()), radius=1.5,
+                        startangle=90, autopct='%1.1f%%', radius=1.5,
                         wedgeprops={'edgecolor': 'black', 'linewidth': 1})
             else:
                 st.subheader(option1)
@@ -124,7 +124,7 @@ if page == 'Predictive Model':
                 fig.set_size_inches(2, 2)
                 # fig.patch.set_facecolor('#0E1117')
                 plt.pie(Counter(labelled_data[option1]).values(), labels=Counter(labelled_data[option1]).keys(),
-                        startangle=90, autopct=autopct_format(Counter(labelled_data[option1]).values()), radius=1.5,
+                        startangle=90, autopct='%1.1f%%', radius=1.5,
                         wedgeprops={'edgecolor': 'black', 'linewidth': 1})
             st.pyplot(fig)
 
@@ -135,7 +135,7 @@ if page == 'Predictive Model':
                 ax[i].title.set_text(option1 + ' - ' + str(u))
                 ax[i].pie(transformed_data[transformed_data[option1] == u]['count'],
                           labels=transformed_data[transformed_data[option1] == u]['DEATH_EVENT'], startangle=90,
-                          autopct=autopct_format(transformed_data[transformed_data[option1] == u]['count']))
+                          autopct='%1.1f%%')
             st.pyplot(fig)
 
         # correlation matrix
