@@ -183,63 +183,65 @@ if page == 'Predictive Model':
 
         # st.write(feature_details[option2])
 
-        st.subheader('Value Distribution')
-        binned_data = labelled_data.copy()
-        bin_division = {
-            'age_bins': [18, 45, 60, 80, 100],
-            'creatinine_phosphokinase_bins': [0, 200, 2000, 5000, max(binned_data['creatinine_phosphokinase'])],
-            'ejection_fraction_bins': [0, 20, 50, 75, 100],
-            'platelets_bins': [10000, 150000, 450000, 1000000],
-            'serum_creatinine_bins': [0, 0.5, 1.2, 5, 11],
-            'serum_sodium_bins': [100, 130, 145, 150]
-        }
-        bin_labels = {
-            'age_labels': ['18-45', '45-60', '60-80', '>80'],
-            'creatinine_phosphokinase_labels': ['10-200 (N)', '200-2000', '2000-5000', '>5000'],
-            'ejection_fraction_labels': ['0-20', '20-50', '50-75 (N)', '70-100'],
-            'platelets_labels': ['10k-150k', '150k-450k (N)', '>450k'],
-            'serum_creatinine_labels': ['0-0.5', '0.5-1.2 (N)', '1.2-5', '>5'],
-            'serum_sodium_labels': ['100-130', '130-145', '145-150']
-        }
+        # value distribution
+        if not no_dependent_var:
+            st.subheader('Value Distribution')
+            binned_data = labelled_data.copy()
+            bin_division = {
+                'age_bins': [18, 45, 60, 80, 100],
+                'creatinine_phosphokinase_bins': [0, 200, 2000, 5000, max(binned_data['creatinine_phosphokinase'])],
+                'ejection_fraction_bins': [0, 20, 50, 75, 100],
+                'platelets_bins': [10000, 150000, 450000, 1000000],
+                'serum_creatinine_bins': [0, 0.5, 1.2, 5, 11],
+                'serum_sodium_bins': [100, 130, 145, 150]
+            }
+            bin_labels = {
+                'age_labels': ['18-45', '45-60', '60-80', '>80'],
+                'creatinine_phosphokinase_labels': ['10-200 (N)', '200-2000', '2000-5000', '>5000'],
+                'ejection_fraction_labels': ['0-20', '20-50', '50-75 (N)', '70-100'],
+                'platelets_labels': ['10k-150k', '150k-450k (N)', '>450k'],
+                'serum_creatinine_labels': ['0-0.5', '0.5-1.2 (N)', '1.2-5', '>5'],
+                'serum_sodium_labels': ['100-130', '130-145', '145-150']
+            }
 
-        binned_data[option2+'_bins'] = pd.cut(binned_data[option2], bin_division[option2+'_bins'],
-                                              labels=bin_labels[option2+'_labels'])
+            binned_data[option2+'_bins'] = pd.cut(binned_data[option2], bin_division[option2+'_bins'],
+                                                  labels=bin_labels[option2+'_labels'])
 
-        death_0_values = binned_data[binned_data['DEATH_EVENT'] == 'Alive']
-        death_1_values = binned_data[binned_data['DEATH_EVENT'] == 'Dead']
+            death_0_values = binned_data[binned_data['DEATH_EVENT'] == 'Alive']
+            death_1_values = binned_data[binned_data['DEATH_EVENT'] == 'Dead']
 
-        fig, ax = plt.subplots(1, 2, figsize=(15, 15))
+            fig, ax = plt.subplots(1, 2, figsize=(15, 15))
 
-        ax[0].set_title(option2 + ' wrt Alive patients')
-        ax[0].pie(Counter(death_0_values[option2+'_bins']).values(),
-                  labels=Counter(death_0_values[option2+'_bins']).keys(), startangle=90, autopct='%1.1f%%')
+            ax[0].set_title(option2 + ' wrt Alive patients')
+            ax[0].pie(Counter(death_0_values[option2+'_bins']).values(),
+                      labels=Counter(death_0_values[option2+'_bins']).keys(), startangle=90, autopct='%1.1f%%')
 
-        ax[1].set_title(option2 + ' wrt Deceased patients')
-        ax[1].pie(Counter(death_1_values[option2+'_bins']).values(),
-                  labels=Counter(death_1_values[option2+'_bins']).keys(), startangle=90, autopct='%1.1f%%')
-        st.pyplot(fig)
+            ax[1].set_title(option2 + ' wrt Deceased patients')
+            ax[1].pie(Counter(death_1_values[option2+'_bins']).values(),
+                      labels=Counter(death_1_values[option2+'_bins']).keys(), startangle=90, autopct='%1.1f%%')
+            st.pyplot(fig)
 
-        transformed_data = binned_data.groupby([option2+'_bins', 'DEATH_EVENT']).size().reset_index(name='count')
+            transformed_data = binned_data.groupby([option2+'_bins', 'DEATH_EVENT']).size().reset_index(name='count')
 
-        input_data = {option2+' Groups': list(transformed_data[option2+'_bins'].unique())}
-        for i in transformed_data['DEATH_EVENT'].unique():
-            input_data['Count of ' + i + ' Patients'] = list(
-                transformed_data[transformed_data['DEATH_EVENT'] == i]['count'])
+            input_data = {option2+' Groups': list(transformed_data[option2+'_bins'].unique())}
+            for i in transformed_data['DEATH_EVENT'].unique():
+                input_data['Count of ' + i + ' Patients'] = list(
+                    transformed_data[transformed_data['DEATH_EVENT'] == i]['count'])
 
-        counts_table = pd.DataFrame(input_data)
-        # counts_table.set_index('Age Groups', inplace=True)
+            counts_table = pd.DataFrame(input_data)
+            # counts_table.set_index('Age Groups', inplace=True)
 
-        counts_table['% of Alive Patients wrt ' + option2 + ' Group'] = round(counts_table['Count of Alive Patients']
-                    * 100 / (counts_table['Count of Alive Patients'] + counts_table['Count of Dead Patients']), 2)
-        counts_table['% of Dead Patients wrt ' + option2 + ' Group'] = round(counts_table['Count of Dead Patients']
-                    * 100 / (counts_table['Count of Alive Patients'] + counts_table['Count of Dead Patients']), 2)
+            counts_table['% of Alive Patients wrt ' + option2 + ' Group'] = round(counts_table['Count of Alive Patients']
+                        * 100 / (counts_table['Count of Alive Patients'] + counts_table['Count of Dead Patients']), 2)
+            counts_table['% of Dead Patients wrt ' + option2 + ' Group'] = round(counts_table['Count of Dead Patients']
+                        * 100 / (counts_table['Count of Alive Patients'] + counts_table['Count of Dead Patients']), 2)
 
-        counts_table['% of Alive Patients wrt Total Alive Patients'] = round(
-            counts_table['Count of Alive Patients'] * 100 / counts_table['Count of Alive Patients'].sum(), 2)
-        counts_table['% of Dead Patients wrt Total Dead Patients'] = round(
-            counts_table['Count of Dead Patients'] * 100 / counts_table['Count of Dead Patients'].sum(), 2)
+            counts_table['% of Alive Patients wrt Total Alive Patients'] = round(
+                counts_table['Count of Alive Patients'] * 100 / counts_table['Count of Alive Patients'].sum(), 2)
+            counts_table['% of Dead Patients wrt Total Dead Patients'] = round(
+                counts_table['Count of Dead Patients'] * 100 / counts_table['Count of Dead Patients'].sum(), 2)
 
-        st.table(counts_table)
+            st.table(counts_table)
 
         # feature selection
         st.header('Feature Importance')
