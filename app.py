@@ -229,10 +229,10 @@ if page == 'Predictive Model':
         counts_table = pd.DataFrame(input_data)
         # counts_table.set_index('Age Groups', inplace=True)
 
-        counts_table['% of Alive Patients wrt Age Group'] = round(counts_table['Count of Alive Patients'] * 100 / (
-                    counts_table['Count of Alive Patients'] + counts_table['Count of Dead Patients']), 2)
-        counts_table['% of Dead Patients wrt Age Group'] = round(counts_table['Count of Dead Patients'] * 100 / (
-                    counts_table['Count of Alive Patients'] + counts_table['Count of Dead Patients']), 2)
+        counts_table['% of Alive Patients wrt ' + option2 + ' Group'] = round(counts_table['Count of Alive Patients']
+                    * 100 / (counts_table['Count of Alive Patients'] + counts_table['Count of Dead Patients']), 2)
+        counts_table['% of Dead Patients wrt ' + option2 + ' Group'] = round(counts_table['Count of Dead Patients']
+                    * 100 / (counts_table['Count of Alive Patients'] + counts_table['Count of Dead Patients']), 2)
 
         counts_table['% of Alive Patients wrt Total Alive Patients'] = round(
             counts_table['Count of Alive Patients'] * 100 / counts_table['Count of Alive Patients'].sum(), 2)
@@ -264,33 +264,38 @@ if page == 'Predictive Model':
         predict_button = True
         if predict_button:
             if not no_dependent_var:
-                X = data[['ejection_fraction', 'serum_creatinine', 'platelets']]
+                X = data.copy()
                 y = data[dependent_var]
-
                 X_train, X_testi, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=2)
 
+                X_train_classify = X_train[['ejection_fraction', 'serum_creatinine', 'platelets']]
+                y_train_classify = y_train
+                X_testi_classify = X_testi[['ejection_fraction', 'serum_creatinine', 'platelets']]
+                y_test_classify = y_test
+
                 lof = LocalOutlierFactor()
-                outlier_rows = lof.fit_predict(X_train)
+                outlier_rows = lof.fit_predict(X_train_classify)
 
                 mask = outlier_rows != -1
-                X_train, y_train = X_train[mask], y_train[mask]
+                X_train_classify, y_train_classify = X_train_classify[mask], y_train_classify[mask]
 
                 oversample = RandomOverSampler(sampling_strategy='minority')
-                X_train, y_train = oversample.fit_resample(X_train, y_train)
+                X_train_classify, y_train_classify = oversample.fit_resample(X_train_classify, y_train_classify)
 
                 scaler = StandardScaler()
-                X_train = scaler.fit_transform(X_train)
-                X_test = scaler.transform(X_testi)
+                X_train_classify = scaler.fit_transform(X_train_classify)
+                X_test_classify = scaler.transform(X_testi_classify)
 
                 model = SVC(kernel='linear', gamma=0.1, probability=True)
-                model.fit(X_train, y_train)
-                y_pred = model.predict(X_test)
-                st.write('Accuracy: ' + str(accuracy_score(y_test, y_pred)*100))
-                st.write('Recall: ' + str(recall_score(y_test, y_pred) * 100))
+                model.fit(X_train_classify, y_train_classify)
+                y_pred = model.predict(X_test_classify)
+                st.write('Accuracy: ' + str(accuracy_score(y_test_classify, y_pred)*100))
+                st.write('Recall: ' + str(recall_score(y_test_classify, y_pred) * 100))
                 # st.write(classification_report(y_test, y_pred))
 
                 fig, ax = plt.subplots(figsize=(2, 2))
-                conf_matrix = confusion_matrix(y_true=y_test, y_pred=y_pred)
+                fig.set_size_inches(2, 2, forward=True)
+                conf_matrix = confusion_matrix(y_true=y_test_classify, y_pred=y_pred)
                 ax.matshow(conf_matrix, cmap=plt.cm.Blues, alpha=0.3)
                 for i in range(conf_matrix.shape[0]):
                     for j in range(conf_matrix.shape[1]):
@@ -301,16 +306,52 @@ if page == 'Predictive Model':
                 plt.title('Confusion Matrix', fontsize=6)
                 st.pyplot(fig)
 
-                predicted_data = pd.DataFrame(X_testi, columns=['ejection_fraction', 'serum_creatinine', 'platelets'])
+                # survival special part
+                X_train_survival = X_train.drop(['platelets', 'creatinine_phosphokinase'], axis=1)
+                X_test_survival = X_testi.drop(['platelets', 'creatinine_phosphokinase'], axis=1)
+
+                lof = LocalOutlierFactor()
+                outlier_rows = lof.fit_predict(X_train_survival)
+
+                mask = outlier_rows != -1
+                X_train_survival = X_train_survival[mask]
+
+                scaler = StandardScaler()
+                X_train_survival.values[:] = scaler.fit_transform(X_train_survival)
+
+                cph = CoxPHFitter()
+                # update the dynamic var
+                cph.fit(X_train_survival, duration_col='time', event_col='DEATH_EVENT', step_size=0.01)
+                hazard_score = cph.predict_partial_hazard(X_test_survival)
+                hazard_score = pd.DataFrame({'Patient ID': hazard_score.index, 'Hazard Function Score': hazard_score.values})
+                hazard_score['Hazard Function Score'] = round(hazard_score['Hazard Function Score'], 2)
+
+                survival_score = cph.predict_survival_function(X_test_survival)
+                survival_score = survival_score.T
+                time_median = data['time'].median()
+                summary_cols = [survival_score.columns[0], time_median, survival_score.columns[-1]]
+                survival_score_summary = survival_score[summary_cols]
+                survival_score_summary.reset_index(inplace=True)
+                survival_score_summary.rename(columns={'index': 'Patient ID',
+                                                       summary_cols[0]: 'Survival Probability at the start of Time Period',
+                                                       summary_cols[1]: 'Survival Probability in the middle of Time Period',
+                                                       summary_cols[2]: 'Survival Probability at the end of Time Period'}, inplace=True)
+
+                predicted_data = pd.DataFrame(X_testi_classify, columns=['ejection_fraction', 'serum_creatinine',
+                                                                        'platelets'])
+                predicted_data.reset_index(inplace=True)
+                predicted_data.rename(columns={'index': 'Patient ID'}, inplace=True)
                 predicted_data['Risk Probability'] = 0
 
                 for i in range(predicted_data.shape[0]):
-                    prediction_values = np.array(X_test[i]).reshape(1, -1)
+                    prediction_values = np.array(X_test_classify[i]).reshape(1, -1)
                     predicted_data['Risk Probability'].iloc[i] = model.predict_proba(prediction_values)[:, 1]
 
+                predicted_data = predicted_data.merge(hazard_score, on='Patient ID')
+                predicted_data = predicted_data.merge(survival_score_summary, on='Patient ID')
                 st.dataframe(predicted_data.sort_values(by=['Risk Probability'], ascending=False))
 
-            elif no_dependent_var:
+            elif no_dependent_var:  # cluster section
                 X = data.drop(['time', 'DEATH_EVENT'], axis=1)
                 y = data['DEATH_EVENT']
 
@@ -325,11 +366,24 @@ if page == 'Predictive Model':
                 print(Counter(y))
 
                 scaler = StandardScaler()
-                X = scaler.fit_transform(X)
+                X_final = scaler.fit_transform(X)
 
                 cluster_model = KMeans(n_clusters=2, n_init=30, tol=0.00001, max_iter=1000)
-                cluster_model.fit(X)
+                cluster_model.fit(X_final)
                 y_pred = cluster_model.labels_
+                labels = pd.DataFrame(cluster_model.labels_)
+                X_new = pd.concat((X, labels), axis=1)
+                X_new = X_new.rename({0: 'labels'}, axis=1)
+
+                f1, f2 = st.columns(2)
+                with f1:
+                    feature1 = st.selectbox('Feature 1', X.columns)
+                with f2:
+                    feature2 = st.selectbox('Feature 2', X.columns, index=2)
+                fig = plt.figure(figsize=(8, 6))
+                plt.xticks(fontsize=12)
+                sns.scatterplot(x=feature1, y=feature2, hue='labels', data=X_new)
+                st.pyplot(fig)
 
 
     else:
