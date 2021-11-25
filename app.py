@@ -378,15 +378,6 @@ if page == 'Predictive Model':
                 predicted_data = predicted_data.merge(hazard_score, on='Patient ID')
                 predicted_data = predicted_data.merge(survival_score_summary, on='Patient ID')
 
-                table1 = go.Figure(data=[go.Table(
-                    header=dict(values=list(predicted_data.columns),
-                                fill_color=background_color,
-                                align='left'),
-                    cells=dict(values=[predicted_data[col] for col in predicted_data.columns],
-                               fill_color=background_color,
-                               align='left')
-                )])
-                st.write(table1)
                 st.dataframe(predicted_data.sort_values(by=['Risk Probability'], ascending=False))
 
             elif no_dependent_var:  # cluster section
