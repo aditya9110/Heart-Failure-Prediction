@@ -5,6 +5,9 @@ import matplotlib.pyplot as plt
 import matplotlib as mpl
 import seaborn as sns
 from collections import Counter
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 
 mpl.rcParams['font.size'] = 10
 mpl.rcParams['text.color'] = 'black'
@@ -25,6 +28,8 @@ from imblearn.over_sampling import RandomOverSampler, SMOTE
 from lifelines import CoxPHFitter
 from lifelines import KaplanMeierFitter
 from lifelines.utils import concordance_index as c_idx
+
+background_color = '#0E1117'
 
 st.sidebar.title('Navigation')
 page = st.sidebar.radio('What would you like to do', ['Predictive Model', 'Survival Model'])
@@ -78,7 +83,7 @@ if page == 'Predictive Model':
                 continue
             elif len(data[feature].unique()) >= 10 and feature != 'time':
                 continuous_features.append(feature)
-            else:
+            elif feature != 'time':
                 discrete_features.append(feature)
         # print('Discrete: ', discrete_features, '\n', 'Continuous', continuous_features)
 
@@ -112,31 +117,47 @@ if page == 'Predictive Model':
         with row2col2:
             if option1 == dependent_var:
                 st.subheader(option1 + ' - Dependent Variable')
-                fig = plt.figure(figsize=(2, 2))
-                fig.set_size_inches(2, 2)
-                plt.pie(Counter(labelled_data[option1]).values(), labels=Counter(labelled_data[option1]).keys(),
-                        startangle=90, autopct='%1.1f%%', radius=1.5,
-                        wedgeprops={'edgecolor': 'black', 'linewidth': 1})
+
+                fig = go.Figure(data=[go.Pie(labels=list(Counter(labelled_data[option1]).keys()),
+                                             values=list(Counter(labelled_data[option1]).values()),
+                                             name='')])
+                # plt.pie(Counter(labelled_data[option1]).values(), labels=Counter(labelled_data[option1]).keys(),
+                #         startangle=90, autopct='%1.1f%%', radius=1.5,
+                #         wedgeprops={'edgecolor': 'black', 'linewidth': 1})
             else:
                 st.subheader(option1)
                 # st.write(feature_details[option1])
-                fig = plt.figure(figsize=(2, 2))
-                fig.set_size_inches(2, 2)
-                # fig.patch.set_facecolor('#0E1117')
-                plt.pie(Counter(labelled_data[option1]).values(), labels=Counter(labelled_data[option1]).keys(),
-                        startangle=90, autopct='%1.1f%%', radius=1.5,
-                        wedgeprops={'edgecolor': 'black', 'linewidth': 1})
-            st.pyplot(fig)
 
+                fig = go.Figure(data=[go.Pie(labels=list(Counter(labelled_data[option1]).keys()),
+                                     values=list(Counter(labelled_data[option1]).values()),
+                                     name='')])
+                # plt.pie(Counter(labelled_data[option1]).values(), labels=Counter(labelled_data[option1]).keys(),
+                #         startangle=90, autopct='%1.1f%%', radius=1.5,
+                #         wedgeprops={'edgecolor': 'black', 'linewidth': 1})
+
+            fig.update_traces(textfont_size=20)
+            fig.update_layout(height=400, width=400, plot_bgcolor='rgb(245,245,240)', font=dict(size=16))
+            st.write(fig)
+
+        # subplot pie chart
         if not no_dependent_var and option1 != dependent_var:
-            fig, ax = plt.subplots(1, 2, figsize=(6, 4))
+            # fig, ax = plt.subplots(1, 2, figsize=(6, 4))
+            fig = make_subplots(rows=1, cols=2, specs=[[{"type": "domain"}, {"type": "domain"}]])
+
             transformed_data = labelled_data.groupby([option1, 'DEATH_EVENT']).size().reset_index(name='count')
             for i, u in enumerate(labelled_data[option1].unique()):
-                ax[i].title.set_text(option1 + ' - ' + str(u))
-                ax[i].pie(transformed_data[transformed_data[option1] == u]['count'],
-                          labels=transformed_data[transformed_data[option1] == u]['DEATH_EVENT'], startangle=90,
-                          autopct='%1.1f%%')
-            st.pyplot(fig)
+                # ax[i].title.set_text(option1 + ' - ' + str(u))
+                fig.add_trace(go.Pie(labels=transformed_data[transformed_data[option1] == u]['DEATH_EVENT'],
+                                     values=transformed_data[transformed_data[option1] == u]['count'],
+                                     title=option1 + ' - ' + str(u),
+                                     name=''), row=1, col=i+1)
+                # ax[i].pie(transformed_data[transformed_data[option1] == u]['count'],
+                #           labels=transformed_data[transformed_data[option1] == u]['DEATH_EVENT'], startangle=90,
+                #           autopct='%1.1f%%')
+
+            fig.update_traces(textfont_size=20)
+            fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), font=dict(size=16))
+            st.write(fig)
 
         # correlation matrix
         st.header('Correlation Matrix')
@@ -189,7 +210,7 @@ if page == 'Predictive Model':
             binned_data = labelled_data.copy()
             bin_division = {
                 'age_bins': [18, 45, 60, 80, 100],
-                'creatinine_phosphokinase_bins': [0, 200, 2000, 5000, max(binned_data['creatinine_phosphokinase'])],
+                'creatinine_phosphokinase_bins': [0, 200, 2000, 5000, max(binned_data['creatinine_phosphokinase'])+1],
                 'ejection_fraction_bins': [0, 20, 50, 75, 100],
                 'platelets_bins': [10000, 150000, 450000, 1000000],
                 'serum_creatinine_bins': [0, 0.5, 1.2, 5, 11],
@@ -210,16 +231,21 @@ if page == 'Predictive Model':
             death_0_values = binned_data[binned_data['DEATH_EVENT'] == 'Alive']
             death_1_values = binned_data[binned_data['DEATH_EVENT'] == 'Dead']
 
-            fig, ax = plt.subplots(1, 2, figsize=(15, 15))
+            fig = make_subplots(rows=1, cols=2, specs=[[{"type": "domain"}, {"type": "domain"}]],
+                                subplot_titles=[option2.capitalize() + ' wrt Alive patients',
+                                                option2.capitalize() + ' wrt Deceased patients'])
 
-            ax[0].set_title(option2 + ' wrt Alive patients')
-            ax[0].pie(Counter(death_0_values[option2+'_bins']).values(),
-                      labels=Counter(death_0_values[option2+'_bins']).keys(), startangle=90, autopct='%1.1f%%')
+            fig.add_trace(go.Pie(labels=list(Counter(death_0_values[option2+'_bins']).keys()),
+                                 values=list(Counter(death_0_values[option2+'_bins']).values()),
+                                 name=''), row=1, col=1)
 
-            ax[1].set_title(option2 + ' wrt Deceased patients')
-            ax[1].pie(Counter(death_1_values[option2+'_bins']).values(),
-                      labels=Counter(death_1_values[option2+'_bins']).keys(), startangle=90, autopct='%1.1f%%')
-            st.pyplot(fig)
+            fig.add_trace(go.Pie(labels=list(Counter(death_1_values[option2 + '_bins']).keys()),
+                                 values=list(Counter(death_1_values[option2 + '_bins']).values()),
+                                 name=''), row=1, col=2)
+
+            fig.update_traces(textfont_size=20)
+            fig.update_layout(margin=dict(t=0, b=0, l=0, r=0), font=dict(size=16))
+            st.write(fig)
 
             transformed_data = binned_data.groupby([option2+'_bins', 'DEATH_EVENT']).size().reset_index(name='count')
 
@@ -351,9 +377,20 @@ if page == 'Predictive Model':
 
                 predicted_data = predicted_data.merge(hazard_score, on='Patient ID')
                 predicted_data = predicted_data.merge(survival_score_summary, on='Patient ID')
+
+                table1 = go.Figure(data=[go.Table(
+                    header=dict(values=list(predicted_data.columns),
+                                fill_color=background_color,
+                                align='left'),
+                    cells=dict(values=[predicted_data[col] for col in predicted_data.columns],
+                               fill_color=background_color,
+                               align='left')
+                )])
+                st.write(table1)
                 st.dataframe(predicted_data.sort_values(by=['Risk Probability'], ascending=False))
 
             elif no_dependent_var:  # cluster section
+                st.subheader('Clustering Result')
                 X = data.drop(['time', 'DEATH_EVENT'], axis=1)
                 y = data['DEATH_EVENT']
 
